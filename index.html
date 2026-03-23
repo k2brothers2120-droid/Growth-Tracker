@@ -490,6 +490,36 @@
     }
     .export-btn:active { transform: scale(0.96); }
 
+
+    /* ── UPDATE BANNER ── */
+    .update-banner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: var(--amber);
+      color: var(--bg);
+      padding: 12px 20px;
+      z-index: 400;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+    .update-banner.show { display: flex; }
+    .update-reload-btn {
+      background: var(--bg);
+      color: var(--amber);
+      border: none;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
     /* scrollbar */
     ::-webkit-scrollbar { width: 0; }
   </style>
@@ -649,6 +679,12 @@
     </div>
     <div id="modal-body"></div>
   </div>
+</div>
+
+<!-- UPDATE BANNER -->
+<div class="update-banner" id="update-banner">
+  <span>🎉 アプリが更新されました</span>
+  <button class="update-reload-btn" onclick="location.reload()">今すぐ反映</button>
 </div>
 
 <!-- TOAST -->
@@ -1266,10 +1302,21 @@ function renderDataStats() {
 initRecordScreen();
 initGraphSelect();
 
-// Service Worker 登録
+// Service Worker 登録・更新検知
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW error:', e));
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      // 更新チェック
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // 新バージョンが準備できたらバナー表示
+            document.getElementById('update-banner').classList.add('show');
+          }
+        });
+      });
+    }).catch(e => console.log('SW error:', e));
   });
 }
 </script>
