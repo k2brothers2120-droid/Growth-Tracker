@@ -285,14 +285,39 @@
     .save-btn:active { transform: scale(0.98); background: var(--amber2); }
 
     /* ── RECENT LOG ── */
+    .log-wrap {
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-wrap:last-child { border-bottom: none; }
+    .log-delete-bg {
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 80px;
+      background: var(--red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      border-radius: 8px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
     .log-item {
       display: flex;
       align-items: flex-start;
       gap: 14px;
       padding: 14px 0;
-      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      transform: translateX(0);
+      transition: transform 0.25s ease;
+      position: relative;
+      z-index: 1;
+      touch-action: pan-y;
+      user-select: none;
     }
-    .log-item:last-child { border-bottom: none; }
+    .log-item.swiped { transform: translateX(-80px); }
     .log-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
     .log-body { flex: 1; }
     .log-name { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
@@ -303,12 +328,6 @@
     }
     .log-memo { font-size: 11px; color: var(--text3); margin-top: 2px; }
     .log-time { font-size: 10px; color: var(--text3); flex-shrink: 0; }
-    .log-delete {
-      background: none; border: none;
-      color: var(--text3); cursor: pointer;
-      font-size: 16px; padding: 4px;
-      flex-shrink: 0;
-    }
 
     /* ── CALENDAR ── */
     .cal-nav {
@@ -907,10 +926,67 @@ function saveRecord(catId) {
 }
 
 function deleteRecord(id) {
-  DB.records = DB.records.filter(r => r.id !== id);
-  saveData(DB);
-  renderCatGrid();
-  renderTodayLog();
+  // Animate out
+  const wrap = document.getElementById('wrap-' + id);
+  if (wrap) {
+    wrap.style.transition = 'max-height 0.3s ease, opacity 0.3s ease';
+    wrap.style.maxHeight = wrap.offsetHeight + 'px';
+    requestAnimationFrame(() => {
+      wrap.style.maxHeight = '0';
+      wrap.style.opacity = '0';
+    });
+    setTimeout(() => {
+      DB.records = DB.records.filter(r => r.id !== id);
+      saveData(DB);
+      renderCatGrid();
+      renderTodayLog();
+    }, 300);
+  } else {
+    DB.records = DB.records.filter(r => r.id !== id);
+    saveData(DB);
+    renderCatGrid();
+    renderTodayLog();
+  }
+}
+
+function attachSwipe(el, id) {
+  let startX = 0, currentX = 0, isDragging = false;
+  const THRESHOLD = 60;
+
+  function onStart(e) {
+    startX = e.touches ? e.touches[0].clientX : e.clientX;
+    isDragging = true;
+    el.style.transition = 'none';
+  }
+  function onMove(e) {
+    if (!isDragging) return;
+    currentX = (e.touches ? e.touches[0].clientX : e.clientX) - startX;
+    if (currentX > 0) currentX = 0; // 右スワイプは無効
+    el.style.transform = `translateX(${Math.max(currentX, -80)}px)`;
+    const bg = document.getElementById('delbg-' + id);
+    if (bg) bg.style.opacity = Math.min(Math.abs(currentX) / THRESHOLD, 1);
+  }
+  function onEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    el.style.transition = 'transform 0.25s ease';
+    if (currentX < -THRESHOLD) {
+      // スワイプ完了 → 削除
+      el.style.transform = 'translateX(-80px)';
+      el.classList.add('swiped');
+      setTimeout(() => deleteRecord(id), 150);
+    } else {
+      // 戻す
+      el.style.transform = 'translateX(0)';
+      const bg = document.getElementById('delbg-' + id);
+      if (bg) bg.style.opacity = '0';
+    }
+    currentX = 0;
+  }
+
+  el.addEventListener('touchstart', onStart, { passive: true });
+  el.addEventListener('touchmove', onMove, { passive: true });
+  el.addEventListener('touchend', onEnd);
 }
 
 // ══════════════════════════════════════════
