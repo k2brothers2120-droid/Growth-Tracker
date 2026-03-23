@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f0e0c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Growth">
+  <title>Self Growth Tracker</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0e0c;
+      --bg2: #1a1915;
+      --bg3: #242320;
+      --border: #2e2c28;
+      --text: #e8e4dc;
+      --text2: #8c8878;
+      --text3: #5c5a54;
+      --amber: #d4a843;
+      --amber2: #b8902e;
+      --amber-dim: rgba(212,168,67,0.12);
+      --amber-glow: rgba(212,168,67,0.06);
+      --green: #6b9e6e;
+      --red: #9e6b6b;
+      --radius: 14px;
+      --nav-h: 68px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ── LAYOUT ── */
+    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+    .screen { 
+      display: none; flex: 1; overflow-y: auto; 
+      padding: 24px 20px calc(var(--nav-h) + 16px);
+    }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ── TOP HEADER ── */
+    .top-header {
+      padding: 52px 20px 0;
+      flex-shrink: 0;
+    }
+    .top-header .date-line {
+      font-size: 11px;
+      color: var(--text3);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .top-header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32px;
+      font-weight: 300;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+    .top-header h1 span { color: var(--amber); }
+
+    /* ── BOTTOM NAV ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      background: rgba(15,14,12,0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+      z-index: 100;
+    }
+    .nav-btn {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 5px;
+      background: none; border: none;
+      color: var(--text3);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      padding: 8px 20px;
+      border-radius: 12px;
+      transition: color 0.2s;
+    }
+    .nav-btn.active { color: var(--amber); }
+    .nav-btn svg { width: 22px; height: 22px; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 14px;
+      margin-top: 28px;
+    }
+    .section-title:first-of-type { margin-top: 8px; }
+
+    /* ── CATEGORY CARDS ── */
+    .category-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .cat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .cat-card:active { transform: scale(0.97); }
+    .cat-card.has-today::after {
+      content: '';
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 7px; height: 7px;
+      background: var(--amber);
+      border-radius: 50%;
+    }
+    .cat-card .cat-icon { font-size: 24px; margin-bottom: 10px; display: block; }
+    .cat-card .cat-name {
+      font-size: 11px;
+      color: var(--text2);
+      letter-spacing: 0.05em;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .cat-card .cat-today {
+      font-size: 15px;
+      color: var(--text);
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+    }
+    .cat-card.noporno {
+      grid-column: span 2;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+    }
+    .cat-card.noporno .cat-icon { margin-bottom: 0; font-size: 28px; }
+    .cat-card.noporno .cat-info { flex: 1; }
+    .streak-count {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 36px;
+      font-weight: 300;
+      color: var(--amber);
+      line-height: 1;
+    }
+    .streak-label { font-size: 10px; color: var(--text3); letter-spacing: 0.1em; }
+
+    .check-btn {
+      background: var(--amber-dim);
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .check-btn.done {
+      background: var(--amber);
+      color: var(--bg);
+    }
+    .check-btn:active { transform: scale(0.96); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      padding: 24px 24px 40px;
+      width: 100%;
+      max-width: 480px;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(40px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-close {
+      background: var(--bg3);
+      border: none;
+      color: var(--text2);
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── FORM ── */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+    .form-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    .form-input:focus { border-color: var(--amber); }
+    .form-input::placeholder { color: var(--text3); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .save-btn {
+      width: 100%;
+      background: var(--amber);
+      color: var(--bg);
+      border: none;
+      border-radius: 12px;
+      padding: 15px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    .save-btn:active { transform: scale(0.98); background: var(--amber2); }
+
+    /* ── RECENT LOG ── */
+    .log-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .log-body { flex: 1; }
+    .log-name { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
+    .log-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      color: var(--text);
+    }
+    .log-memo { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .log-time { font-size: 10px; color: var(--text3); flex-shrink: 0; }
+    .log-delete {
+      background: none; border: none;
+      color: var(--text3); cursor: pointer;
+      font-size: 16px; padding: 4px;
+      flex-shrink: 0;
+    }
+
+    /* ── CALENDAR ── */
+    .cal-nav {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .cal-nav-btn {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cal-month {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 400;
+    }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .cal-dow {
+      text-align: center;
+      font-size: 9px;
+      color: var(--text3);
+      letter-spacing: 0.1em;
+      padding: 4px 0 8px;
+    }
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--text2);
+      cursor: pointer;
+      position: relative;
+      gap: 3px;
+    }
+    .cal-day.empty { cursor: default; }
+    .cal-day.today {
+      background: var(--amber-dim);
+      color: var(--amber);
+      font-weight: 600;
+    }
+    .cal-day.has-record { color: var(--text); }
+    .cal-day .dot-row {
+      display: flex; gap: 2px;
+      position: absolute;
+      bottom: 4px;
+    }
+    .cal-dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+    .cal-detail {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-top: 20px;
+    }
+    .cal-detail-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      margin-bottom: 14px;
+      color: var(--text2);
+    }
+
+    /* ── GRAPH ── */
+    .graph-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .graph-tab {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text3);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+    .graph-tab.active {
+      background: var(--amber-dim);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .graph-cat-select {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      width: 100%;
+      outline: none;
+      margin-bottom: 20px;
+      -webkit-appearance: none;
+    }
+    .chart-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty {
+      text-align: center;
+      color: var(--text3);
+      padding: 32px 0;
+      font-size: 12px;
+      line-height: 2;
+    }
+    .empty .e-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--nav-h) + 12px);
+      left: 50%; transform: translateX(-50%) translateY(10px);
+      background: var(--amber);
+      color: var(--bg);
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 300;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 0; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══ SCREEN: RECORD ══ -->
+  <div class="screen active" id="screen-record">
+    <div class="top-header">
+      <div class="date-line" id="today-label"></div>
+      <h1>Today's<br><span>Practice</span></h1>
+    </div>
+
+    <div style="padding: 0 0 8px; flex:1;">
+      <div class="section-title">カテゴリを選んで記録</div>
+      <div class="category-grid" id="cat-grid"></div>
+
+      <div class="section-title">本日の記録</div>
+      <div id="today-log"></div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: CALENDAR ══ -->
+  <div class="screen" id="screen-cal">
+    <div class="top-header">
+      <div class="date-line">CALENDAR</div>
+      <h1>記録の<br><span>足跡</span></h1>
+    </div>
+    <div style="padding: 8px 0; flex:1;">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calMove(-1)">‹</button>
+        <div class="cal-month" id="cal-month-label"></div>
+        <button class="cal-nav-btn" onclick="calMove(1)">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-detail" id="cal-detail" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: GRAPH ══ -->
+  <div class="screen" id="screen-graph">
+    <div class="top-header">
+      <div class="date-line">STATISTICS</div>
+      <h1>推移<br><span>グラフ</span></h1>
+    </div>
+    <div style="padding: 8px 0; flex:1;">
+      <div class="graph-tabs">
+        <button class="graph-tab active" onclick="setGraphPeriod('week', this)">週</button>
+        <button class="graph-tab" onclick="setGraphPeriod('month', this)">月</button>
+      </div>
+      <select class="graph-cat-select" id="graph-cat-select" onchange="renderGraph()"></select>
+      <div class="chart-wrap"><canvas id="main-chart"></canvas></div>
+      <div class="section-title">累計</div>
+      <div id="stats-summary"></div>
+    </div>
+  </div>
+
+  <!-- ══ BOTTOM NAV ══ -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchScreen('record', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+      </svg>
+      記録
+    </button>
+    <button class="nav-btn" onclick="switchScreen('cal', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="4" width="18" height="18" rx="3"/>
+        <path d="M3 9h18M8 2v4M16 2v4" stroke-linecap="round"/>
+      </svg>
+      カレンダー
+    </button>
+    <button class="nav-btn" onclick="switchScreen('graph', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M4 20 L8 14 L12 16 L16 8 L20 4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      グラフ
+    </button>
+  </nav>
+</div>
+
+<!-- ══ MODAL ══ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModalDirect()">×</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+// DATA & CONSTANTS
+// ══════════════════════════════════════════
+const CATEGORIES = [
+  { id: 'gym',      icon: '🏋️', name: 'ジムトレーニング', fields: [
+    { key: 'duration', label: '時間', unit: '分', type: 'number', placeholder: '60' },
+    { key: 'memo', label: 'メモ', type: 'text', placeholder: '胸・背中' }
+  ]},
+  { id: 'run',      icon: '🏃', name: 'ランニング', fields: [
+    { key: 'distance', label: '距離', unit: 'km', type: 'number', placeholder: '5.0' },
+    { key: 'duration', label: '時間', unit: '分', type: 'number', placeholder: '30' },
+    { key: 'memo', label: 'メモ', type: 'text', placeholder: '皇居ラン' }
+  ]},
+  { id: 'med',      icon: '🧘', name: '瞑想', fields: [
+    { key: 'duration', label: '時間', unit: '分', type: 'number', placeholder: '15' },
+    { key: 'memo', label: 'メモ', type: 'text', placeholder: '集中・リラックス' }
+  ]},
+  { id: 'journal',  icon: '📓', name: 'ジャーナル', fields: [
+    { key: 'memo', label: 'メモ', type: 'text', placeholder: '今日のテーマ' }
+  ]},
+  { id: 'book',     icon: '📚', name: '読書', fields: [
+    { key: 'pages', label: 'ページ', unit: 'p', type: 'number', placeholder: '30' },
+    { key: 'title', label: '書籍名', type: 'text', placeholder: 'タイトル' },
+    { key: 'memo', label: 'メモ', type: 'text', placeholder: '気づき' }
+  ]},
+  { id: 'lang',     icon: '🗣️', name: '語学学習', fields: [
+    { key: 'duration', label: '時間', unit: '分', type: 'number', placeholder: '30' },
+    { key: 'title', label: '教材名', type: 'text', placeholder: '英語・中国語' },
+    { key: 'memo', label: 'メモ', type: 'text', placeholder: '' }
+  ]},
+  { id: 'noporno',  icon: '💪', name: '脱ポルノ', special: 'streak' }
+];
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ──── Storage ────
+function loadData() {
+  try { return JSON.parse(localStorage.getItem('sgt_v2') || '{"records":[],"streak":{}}'); }
+  catch { return { records: [], streak: {} }; }
+}
+function saveData(d) { localStorage.setItem('sgt_v2', JSON.stringify(d)); }
+
+let DB = loadData();
+
+// ══════════════════════════════════════════
+// SCREEN SWITCH
+// ══════════════════════════════════════════
+function switchScreen(name, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'cal') renderCalendar();
+  if (name === 'graph') renderGraph();
+}
+
+// ══════════════════════════════════════════
+// RECORD SCREEN
+// ══════════════════════════════════════════
+function initRecordScreen() {
+  // Date label
+  const d = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('today-label').textContent =
+    `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）`;
+
+  renderCatGrid();
+  renderTodayLog();
+}
+
+function renderCatGrid() {
+  const grid = document.getElementById('cat-grid');
+  const today = todayStr();
+  const todayRecs = DB.records.filter(r => r.date === today);
+
+  grid.innerHTML = CATEGORIES.map(cat => {
+    if (cat.special === 'streak') {
+      const streak = calcStreak();
+      const checkedToday = DB.streak[today];
+      return `
+        <div class="cat-card noporno" onclick="handleStreak()">
+          <span class="cat-icon">${cat.icon}</span>
+          <div class="cat-info">
+            <span class="cat-name">${cat.name}</span>
+            <div class="streak-count">${streak}</div>
+            <div class="streak-label">日間 継続中</div>
+          </div>
+          <button class="check-btn ${checkedToday ? 'done' : ''}" onclick="event.stopPropagation();handleStreak()">
+            ${checkedToday ? '✓ 達成' : '今日達成'}
+          </button>
+        </div>`;
+    }
+    const recs = todayRecs.filter(r => r.catId === cat.id);
+    const summary = getCatSummary(cat, recs);
+    return `
+      <div class="cat-card ${recs.length ? 'has-today' : ''}" onclick="openModal('${cat.id}')">
+        <span class="cat-icon">${cat.icon}</span>
+        <span class="cat-name">${cat.name}</span>
+        <span class="cat-today">${summary}</span>
+      </div>`;
+  }).join('');
+}
+
+function getCatSummary(cat, recs) {
+  if (!recs.length) return '—';
+  if (cat.id === 'journal') return `${recs.length}回`;
+  if (cat.id === 'book') {
+    const total = recs.reduce((s,r) => s + (parseInt(r.pages)||0), 0);
+    return total ? `${total}p` : `${recs.length}回`;
+  }
+  if (cat.id === 'run') {
+    const km = recs.reduce((s,r) => s + (parseFloat(r.distance)||0), 0);
+    return km ? `${km.toFixed(1)}km` : `${recs.length}回`;
+  }
+  const min = recs.reduce((s,r) => s + (parseInt(r.duration)||0), 0);
+  return min ? `${min}分` : `${recs.length}回`;
+}
+
+function renderTodayLog() {
+  const today = todayStr();
+  const recs = DB.records.filter(r => r.date === today).reverse();
+  const el = document.getElementById('today-log');
+  if (!recs.length) {
+    el.innerHTML = `<div class="empty"><div class="e-icon">📋</div>まだ記録がありません</div>`;
+    return;
+  }
+  el.innerHTML = recs.map(r => {
+    const cat = CATEGORIES.find(c => c.id === r.catId);
+    if (!cat) return '';
+    const valParts = [];
+    if (r.duration) valParts.push(`${r.duration}分`);
+    if (r.distance) valParts.push(`${r.distance}km`);
+    if (r.pages) valParts.push(`${r.pages}p`);
+    if (r.title) valParts.push(r.title);
+    const val = valParts.length ? valParts.join(' · ') : '記録あり';
+    const t = new Date(r.ts);
+    const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    return `
+      <div class="log-item">
+        <span class="log-icon">${cat.icon}</span>
+        <div class="log-body">
+          <div class="log-name">${cat.name}</div>
+          <div class="log-value">${val}</div>
+          ${r.memo ? `<div class="log-memo">${r.memo}</div>` : ''}
+        </div>
+        <span class="log-time">${time}</span>
+        <button class="log-delete" onclick="deleteRecord('${r.id}')">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════
+function openModal(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  document.getElementById('modal-title').innerHTML = `${cat.icon} ${cat.name}`;
+
+  const fieldsHtml = cat.fields.map(f => {
+    if (f.type === 'number') {
+      return `
+        <div class="form-group">
+          <label class="form-label">${f.label}${f.unit ? ' (' + f.unit + ')' : ''}</label>
+          <input class="form-input" type="number" inputmode="decimal" id="field-${f.key}" placeholder="${f.placeholder}" min="0" step="any">
+        </div>`;
+    }
+    return `
+      <div class="form-group">
+        <label class="form-label">${f.label}</label>
+        <input class="form-input" type="text" id="field-${f.key}" placeholder="${f.placeholder}">
+      </div>`;
+  }).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    ${fieldsHtml}
+    <button class="save-btn" onclick="saveRecord('${catId}')">記録する</button>`;
+
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => {
+    const first = document.querySelector('#modal-body .form-input');
+    if (first) first.focus();
+  }, 300);
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function saveRecord(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  const rec = {
+    id: Date.now().toString(),
+    catId,
+    date: todayStr(),
+    ts: Date.now()
+  };
+  cat.fields.forEach(f => {
+    const val = document.getElementById('field-' + f.key)?.value.trim();
+    if (val) rec[f.key] = f.type === 'number' ? parseFloat(val) : val;
+  });
+  DB.records.push(rec);
+  saveData(DB);
+  closeModalDirect();
+  renderCatGrid();
+  renderTodayLog();
+  showToast('記録しました ✓');
+}
+
+function deleteRecord(id) {
+  DB.records = DB.records.filter(r => r.id !== id);
+  saveData(DB);
+  renderCatGrid();
+  renderTodayLog();
+}
+
+// ══════════════════════════════════════════
+// STREAK
+// ══════════════════════════════════════════
+function calcStreak() {
+  let count = 0;
+  const d = new Date();
+  while (true) {
+    const s = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!DB.streak[s]) break;
+    count++;
+    d.setDate(d.getDate() - 1);
+  }
+  return count;
+}
+
+function handleStreak() {
+  const today = todayStr();
+  if (DB.streak[today]) {
+    DB.streak[today] = false;
+    delete DB.streak[today];
+    showToast('チェックを取り消しました');
+  } else {
+    DB.streak[today] = true;
+    showToast('今日の達成を記録しました 💪');
+  }
+  saveData(DB);
+  renderCatGrid();
+}
+
+// ══════════════════════════════════════════
+// CALENDAR
+// ══════════════════════════════════════════
+let calYear, calMonth;
+
+function renderCalendar() {
+  const now = new Date();
+  if (!calYear) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+
+  document.getElementById('cal-month-label').textContent =
+    `${calYear}年${calMonth+1}月`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const lastDate = new Date(calYear, calMonth+1, 0).getDate();
+  const todayS = todayStr();
+
+  const dows = ['日','月','火','水','木','金','土'];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+  for (let i = 0; i < firstDay; i++) html += `<div class="cal-day empty"></div>`;
+
+  for (let d = 1; d <= lastDate; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const recs = DB.records.filter(r => r.date === ds);
+    const hasStreak = DB.streak[ds];
+    const isToday = ds === todayS;
+
+    const cats = [...new Set(recs.map(r => r.catId))];
+    let dots = '';
+    if (recs.length || hasStreak) {
+      const dotCount = Math.min(cats.length + (hasStreak ? 1 : 0), 3);
+      dots = `<div class="dot-row">${Array(dotCount).fill('<div class="cal-dot"></div>').join('')}</div>`;
+    }
+
+    html += `
+      <div class="cal-day ${isToday ? 'today' : ''} ${(recs.length||hasStreak) ? 'has-record' : ''}"
+           onclick="showCalDetail('${ds}')">
+        ${d}
+        ${dots}
+      </div>`;
+  }
+
+  document.getElementById('cal-grid').innerHTML = html;
+  document.getElementById('cal-detail').style.display = 'none';
+}
+
+function calMove(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function showCalDetail(ds) {
+  const recs = DB.records.filter(r => r.date === ds);
+  const hasStreak = DB.streak[ds];
+  const el = document.getElementById('cal-detail');
+
+  const [y,m,d] = ds.split('-');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="cal-detail-title">${parseInt(m)}月${parseInt(d)}日</div>`;
+
+  if (!recs.length && !hasStreak) {
+    el.innerHTML += `<div style="color:var(--text3);font-size:12px;">記録なし</div>`;
+    return;
+  }
+
+  if (hasStreak) {
+    el.innerHTML += `
+      <div class="log-item">
+        <span class="log-icon">💪</span>
+        <div class="log-body"><div class="log-name">脱ポルノ</div><div class="log-value">達成 ✓</div></div>
+      </div>`;
+  }
+
+  recs.forEach(r => {
+    const cat = CATEGORIES.find(c => c.id === r.catId);
+    if (!cat) return;
+    const valParts = [];
+    if (r.duration) valParts.push(`${r.duration}分`);
+    if (r.distance) valParts.push(`${r.distance}km`);
+    if (r.pages) valParts.push(`${r.pages}p`);
+    if (r.title) valParts.push(r.title);
+    el.innerHTML += `
+      <div class="log-item">
+        <span class="log-icon">${cat.icon}</span>
+        <div class="log-body">
+          <div class="log-name">${cat.name}</div>
+          <div class="log-value">${valParts.join(' · ') || '記録あり'}</div>
+          ${r.memo ? `<div class="log-memo">${r.memo}</div>` : ''}
+        </div>
+      </div>`;
+  });
+}
+
+// ══════════════════════════════════════════
+// GRAPH
+// ══════════════════════════════════════════
+let graphPeriod = 'week';
+let chartInstance = null;
+
+function initGraphSelect() {
+  const sel = document.getElementById('graph-cat-select');
+  const graphCats = CATEGORIES.filter(c => c.id !== 'noporno');
+  sel.innerHTML = graphCats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+}
+
+function setGraphPeriod(p, btn) {
+  graphPeriod = p;
+  document.querySelectorAll('.graph-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGraph();
+}
+
+function renderGraph() {
+  const catId = document.getElementById('graph-cat-select').value;
+  const cat = CATEGORIES.find(c => c.id === catId);
+
+  const labels = [];
+  const values = [];
+  const now = new Date();
+
+  const days = graphPeriod === 'week' ? 7 : 30;
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const recs = DB.records.filter(r => r.date === ds && r.catId === catId);
+    labels.push(graphPeriod === 'week'
+      ? ['日','月','火','水','木','金','土'][d.getDay()]
+      : `${d.getMonth()+1}/${d.getDate()}`);
+
+    let val = 0;
+    if (cat.id === 'book') val = recs.reduce((s,r) => s + (parseInt(r.pages)||0), 0);
+    else if (cat.id === 'run') val = recs.reduce((s,r) => s + (parseFloat(r.distance)||0), 0);
+    else if (cat.id === 'journal') val = recs.length;
+    else val = recs.reduce((s,r) => s + (parseInt(r.duration)||0), 0);
+    values.push(val);
+  }
+
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('main-chart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: 'rgba(212,168,67,0.3)',
+        borderColor: '#d4a843',
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5c5a54', font: { family: 'DM Mono', size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5c5a54', font: { family: 'DM Mono', size: 10 } }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Summary
+  const allRecs = DB.records.filter(r => r.catId === catId);
+  let totalVal = 0, unit = '';
+  if (cat.id === 'book') { totalVal = allRecs.reduce((s,r) => s+(parseInt(r.pages)||0),0); unit = 'p'; }
+  else if (cat.id === 'run') { totalVal = allRecs.reduce((s,r) => s+(parseFloat(r.distance)||0),0).toFixed(1); unit = 'km'; }
+  else if (cat.id === 'journal') { totalVal = allRecs.length; unit = '回'; }
+  else { totalVal = allRecs.reduce((s,r) => s+(parseInt(r.duration)||0),0); unit = '分'; }
+
+  document.getElementById('stats-summary').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:6px;">TOTAL</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--amber);">${totalVal}<span style="font-size:14px;margin-left:4px;">${unit}</span></div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:6px;">DAYS</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--amber);">${new Set(allRecs.map(r=>r.date)).size}<span style="font-size:14px;margin-left:4px;">日</span></div>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+initRecordScreen();
+initGraphSelect();
+
+// Service Worker 登録
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW error:', e));
+  });
+}
+</script>
+</body>
+</html>
