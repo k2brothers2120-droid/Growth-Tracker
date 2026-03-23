@@ -458,6 +458,38 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+
+    /* ── EXPORT ── */
+    .export-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .export-icon { font-size: 22px; flex-shrink: 0; }
+    .export-info { flex: 1; }
+    .export-name { font-size: 12px; color: var(--text); margin-bottom: 3px; }
+    .export-desc { font-size: 10px; color: var(--text3); line-height: 1.5; }
+    .export-btn {
+      background: var(--amber-dim);
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      padding: 9px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+    .export-btn:active { transform: scale(0.96); }
+
     /* scrollbar */
     ::-webkit-scrollbar { width: 0; }
   </style>
@@ -516,6 +548,67 @@
     </div>
   </div>
 
+
+  <!-- ══ SCREEN: EXPORT ══ -->
+  <div class="screen" id="screen-export">
+    <div class="top-header">
+      <div class="date-line">DATA</div>
+      <h1>データ<br><span>管理</span></h1>
+    </div>
+    <div style="padding: 8px 0; flex:1;">
+      <div class="section-title">バックアップ</div>
+      <div class="export-card">
+        <div class="export-icon">📦</div>
+        <div class="export-info">
+          <div class="export-name">JSON エクスポート</div>
+          <div class="export-desc">全データを保存。機種変更時の復元にも使えます</div>
+        </div>
+        <button class="export-btn" onclick="exportJSON()">保存</button>
+      </div>
+      <div class="export-card" style="margin-top:10px;">
+        <div class="export-icon">📥</div>
+        <div class="export-info">
+          <div class="export-name">JSON インポート</div>
+          <div class="export-desc">バックアップから復元（現在のデータは上書きされます）</div>
+        </div>
+        <label class="export-btn" style="cursor:pointer;">読込<input type="file" accept=".json" style="display:none;" onchange="importJSON(event)"></label>
+      </div>
+      <div class="section-title">AI分析用エクスポート</div>
+      <div class="export-card">
+        <div class="export-icon">📊</div>
+        <div class="export-info">
+          <div class="export-name">CSV エクスポート</div>
+          <div class="export-desc">Excel等で開けます</div>
+        </div>
+        <button class="export-btn" onclick="exportCSV()">保存</button>
+      </div>
+      <div class="export-card" style="margin-top:10px;">
+        <div class="export-icon">🤖</div>
+        <div class="export-info">
+          <div class="export-name">Claude分析用テキスト</div>
+          <div class="export-desc">Claudeに貼り付けるだけで分析してくれます</div>
+        </div>
+        <button class="export-btn" onclick="exportForClaude()">生成</button>
+      </div>
+      <div id="claude-text-area" style="display:none;margin-top:16px;">
+        <div class="section-title">コピーしてClaudeに貼り付けてください</div>
+        <textarea id="claude-textarea" class="form-input" style="height:180px;resize:none;font-size:11px;line-height:1.6;" readonly></textarea>
+        <button class="save-btn" style="margin-top:10px;" onclick="copyClaudeText()">📋 コピーする</button>
+      </div>
+      <div class="section-title">データ統計</div>
+      <div id="data-stats"></div>
+      <div class="section-title" style="color:#9e6b6b;margin-top:32px;">危険ゾーン</div>
+      <div class="export-card" style="border-color:#3a2020;">
+        <div class="export-icon">🗑️</div>
+        <div class="export-info">
+          <div class="export-name" style="color:#9e6b6b;">全データ削除</div>
+          <div class="export-desc">この操作は取り消せません</div>
+        </div>
+        <button class="export-btn" style="border-color:#9e6b6b;color:#9e6b6b;background:rgba(158,107,107,0.1);" onclick="deleteAllData()">削除</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ BOTTOM NAV ══ -->
   <nav class="bottom-nav">
     <button class="nav-btn active" onclick="switchScreen('record', this)">
@@ -536,6 +629,13 @@
         <path d="M4 20 L8 14 L12 16 L16 8 L20 4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       グラフ
+    </button>
+    <button class="nav-btn" onclick="switchScreen('export', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 3v13M7 11l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5 21h14" stroke-linecap="round"/>
+      </svg>
+      データ
     </button>
   </nav>
 </div>
@@ -612,6 +712,7 @@ function switchScreen(name, btn) {
   btn.classList.add('active');
   if (name === 'cal') renderCalendar();
   if (name === 'graph') renderGraph();
+  if (name === 'export') renderDataStats();
 }
 
 // ══════════════════════════════════════════
@@ -1004,6 +1105,164 @@ function showToast(msg) {
 // ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// EXPORT / IMPORT
+// ══════════════════════════════════════════
+function exportJSON() {
+  const data = JSON.stringify(DB, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `growth-tracker-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('JSONを保存しました');
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.records) throw new Error();
+      if (!confirm('現在のデータを上書きしてよろしいですか？')) return;
+      DB = parsed;
+      saveData(DB);
+      renderCatGrid();
+      renderTodayLog();
+      renderDataStats();
+      showToast('インポートしました ✓');
+    } catch { showToast('ファイルが正しくありません'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function exportCSV() {
+  const cats = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+  const rows = [['日付','カテゴリ','時間(分)','距離(km)','ページ数','書籍/教材名','メモ']];
+  DB.records.forEach(r => {
+    const cat = cats[r.catId];
+    rows.push([
+      r.date,
+      cat ? cat.name : r.catId,
+      r.duration || '',
+      r.distance || '',
+      r.pages || '',
+      r.title || '',
+      r.memo || ''
+    ]);
+  });
+  // Add streak data
+  Object.entries(DB.streak).forEach(([date, v]) => {
+    if (v) rows.push([date, '脱ポルノ達成', '', '', '', '', '']);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `growth-tracker-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSVを保存しました');
+}
+
+function exportForClaude() {
+  const cats = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+  // Build summary
+  const summary = {};
+  DB.records.forEach(r => {
+    if (!summary[r.catId]) summary[r.catId] = { count: 0, totalMin: 0, totalKm: 0, totalPages: 0 };
+    summary[r.catId].count++;
+    summary[r.catId].totalMin += parseInt(r.duration) || 0;
+    summary[r.catId].totalKm += parseFloat(r.distance) || 0;
+    summary[r.catId].totalPages += parseInt(r.pages) || 0;
+  });
+  const streak = calcStreak();
+  const totalDays = new Set(DB.records.map(r => r.date)).size;
+  const firstDate = DB.records.length ? DB.records[0].date : '—';
+
+  let text = `以下は私の自己研鑽の記録データです。このデータを分析して、私の頑張りを認めつつ、パターンや傾向、改善点などを優しく教えてください。自己肯定感が上がるようなフィードバックをお願いします。\n\n`;
+  text += `【記録期間】${firstDate} 〜 ${todayStr()}（記録のある日数：${totalDays}日）\n\n`;
+  text += `【カテゴリ別累計】\n`;
+  Object.entries(summary).forEach(([id, s]) => {
+    const cat = cats[id];
+    if (!cat) return;
+    let detail = `${s.count}回`;
+    if (s.totalMin > 0) detail += ` / 合計${s.totalMin}分`;
+    if (s.totalKm > 0) detail += ` / 合計${s.totalKm.toFixed(1)}km`;
+    if (s.totalPages > 0) detail += ` / 合計${s.totalPages}ページ`;
+    text += `・${cat.name}：${detail}\n`;
+  });
+  text += `・脱ポルノ：現在${streak}日継続中 / 累計${Object.values(DB.streak).filter(Boolean).length}日達成\n\n`;
+  text += `【直近30日の記録】\n`;
+  const recent = DB.records.filter(r => r.date >= todayStr().slice(0,7) + '-01').slice(-50);
+  recent.forEach(r => {
+    const cat = cats[r.catId];
+    const parts = [];
+    if (r.duration) parts.push(`${r.duration}分`);
+    if (r.distance) parts.push(`${r.distance}km`);
+    if (r.pages) parts.push(`${r.pages}p`);
+    if (r.title) parts.push(r.title);
+    if (r.memo) parts.push(r.memo);
+    text += `${r.date} ${cat ? cat.name : r.catId}：${parts.join(' / ') || '記録あり'}\n`;
+  });
+
+  document.getElementById('claude-textarea').value = text;
+  document.getElementById('claude-text-area').style.display = 'block';
+  document.getElementById('claude-text-area').scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyClaudeText() {
+  const ta = document.getElementById('claude-textarea');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => showToast('コピーしました ✓'));
+}
+
+function deleteAllData() {
+  if (!confirm('本当にすべてのデータを削除しますか？\nこの操作は取り消せません。')) return;
+  DB = { records: [], streak: {} };
+  saveData(DB);
+  renderCatGrid();
+  renderTodayLog();
+  renderDataStats();
+  showToast('データを削除しました');
+}
+
+function renderDataStats() {
+  const el = document.getElementById('data-stats');
+  if (!el) return;
+  const totalRecs = DB.records.length;
+  const totalDays = new Set(DB.records.map(r => r.date)).size;
+  const streakDays = Object.values(DB.streak).filter(Boolean).length;
+  const size = new Blob([JSON.stringify(DB)]).size;
+  const kb = (size / 1024).toFixed(1);
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:4px;">総記録数</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--amber);">${totalRecs}<span style="font-size:12px;margin-left:3px;">件</span></div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:4px;">記録した日数</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--amber);">${totalDays}<span style="font-size:12px;margin-left:3px;">日</span></div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:4px;">脱ポルノ達成日</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--amber);">${streakDays}<span style="font-size:12px;margin-left:3px;">日</span></div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:4px;">データサイズ</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--amber);">${kb}<span style="font-size:12px;margin-left:3px;">KB</span></div>
+      </div>
+    </div>`;
+}
+
 initRecordScreen();
 initGraphSelect();
 
