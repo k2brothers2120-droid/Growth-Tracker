@@ -155,42 +155,17 @@
       font-family: 'Cormorant Garamond', serif;
       font-weight: 400;
     }
-    .cat-card.noporno {
-      grid-column: span 2;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 18px 20px;
-    }
-    .cat-card.noporno .cat-icon { margin-bottom: 0; font-size: 28px; }
-    .cat-card.noporno .cat-info { flex: 1; }
-    .streak-count {
+    .streak-count-inline {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 36px;
-      font-weight: 300;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text);
+    }
+    .streak-count-inline .num {
       color: var(--amber);
-      line-height: 1;
+      font-size: 18px;
+      margin-right: 2px;
     }
-    .streak-label { font-size: 10px; color: var(--text3); letter-spacing: 0.1em; }
-
-    .check-btn {
-      background: var(--amber-dim);
-      border: 1px solid var(--amber);
-      color: var(--amber);
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      padding: 10px 16px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    .check-btn.done {
-      background: var(--amber);
-      color: var(--bg);
-    }
-    .check-btn:active { transform: scale(0.96); }
 
     /* ── MODAL ── */
     .modal-overlay {
@@ -363,7 +338,7 @@
       padding: 4px 0 8px;
     }
     .cal-day {
-      aspect-ratio: 1;
+      min-height: 38px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -374,6 +349,7 @@
       cursor: pointer;
       position: relative;
       gap: 3px;
+      padding: 6px 0 10px;
     }
     .cal-day.empty { cursor: default; }
     .cal-day.today {
@@ -385,7 +361,7 @@
     .cal-day .dot-row {
       display: flex; gap: 2px;
       position: absolute;
-      bottom: 4px;
+      bottom: 3px;
     }
     .cal-dot {
       width: 4px; height: 4px;
@@ -740,7 +716,8 @@ const CATEGORIES = [
     { key: 'title', label: '教材名', type: 'text', placeholder: '英語・中国語' },
     { key: 'memo', label: 'メモ', type: 'text', placeholder: '' }
   ]},
-  { id: 'noporno',  icon: '💪', name: '脱ポルノ', special: 'streak' }
+  { id: 'cold',     icon: '🚿', name: 'コールドシャワー', special: 'check' },
+  { id: 'noporno',  icon: '🛡️', name: 'セルフコントロール', special: 'streak' }
 ];
 
 function todayStr() {
@@ -750,8 +727,14 @@ function todayStr() {
 
 // ──── Storage ────
 function loadData() {
-  try { return JSON.parse(localStorage.getItem('sgt_v2') || '{"records":[],"streak":{}}'); }
-  catch { return { records: [], streak: {} }; }
+  try {
+    const d = JSON.parse(localStorage.getItem('sgt_v2') || '{"records":[],"streak":{},"checks":{}}');
+    if (!d.checks) d.checks = {};
+    if (!d.streak) d.streak = {};
+    if (!d.records) d.records = [];
+    return d;
+  }
+  catch { return { records: [], streak: {}, checks: {} }; }
 }
 function saveData(d) { localStorage.setItem('sgt_v2', JSON.stringify(d)); }
 
@@ -794,16 +777,23 @@ function renderCatGrid() {
       const streak = calcStreak();
       const checkedToday = DB.streak[today];
       return `
-        <div class="cat-card noporno" onclick="handleStreak()">
+        <div class="cat-card ${checkedToday ? 'has-today' : ''}" onclick="handleStreak()">
           <span class="cat-icon">${cat.icon}</span>
-          <div class="cat-info">
-            <span class="cat-name">${cat.name}</span>
-            <div class="streak-count">${streak}</div>
-            <div class="streak-label">日間 継続中</div>
-          </div>
-          <button class="check-btn ${checkedToday ? 'done' : ''}" onclick="event.stopPropagation();handleStreak()">
-            ${checkedToday ? '✓ 達成' : '今日達成'}
-          </button>
+          <span class="cat-name">${cat.name}</span>
+          <span class="cat-today">
+            ${checkedToday
+              ? `<span class="streak-count-inline"><span class="num">${streak}</span>日 ✓</span>`
+              : `<span class="streak-count-inline"><span class="num">${streak}</span>日継続中</span>`}
+          </span>
+        </div>`;
+    }
+    if (cat.special === 'check') {
+      const checkedToday = DB.checks && DB.checks[cat.id] && DB.checks[cat.id][today];
+      return `
+        <div class="cat-card ${checkedToday ? 'has-today' : ''}" onclick="handleCheck('${cat.id}')">
+          <span class="cat-icon">${cat.icon}</span>
+          <span class="cat-name">${cat.name}</span>
+          <span class="cat-today">${checkedToday ? '✓ 達成' : 'タップで記録'}</span>
         </div>`;
     }
     const recs = todayRecs.filter(r => r.catId === cat.id);
@@ -815,6 +805,23 @@ function renderCatGrid() {
         <span class="cat-today">${summary}</span>
       </div>`;
   }).join('');
+}
+
+function handleCheck(catId) {
+  const today = todayStr();
+  if (!DB.checks) DB.checks = {};
+  if (!DB.checks[catId]) DB.checks[catId] = {};
+  if (DB.checks[catId][today]) {
+    delete DB.checks[catId][today];
+    showToast('チェックを取り消しました');
+  } else {
+    DB.checks[catId][today] = true;
+    const cat = CATEGORIES.find(c => c.id === catId);
+    showToast(`${cat.name}を記録しました ✓`);
+  }
+  saveData(DB);
+  renderCatGrid();
+  renderTodayLog();
 }
 
 function getCatSummary(cat, recs) {
@@ -836,7 +843,19 @@ function renderTodayLog() {
   const today = todayStr();
   const recs = DB.records.filter(r => r.date === today).reverse();
   const el = document.getElementById('today-log');
-  if (!recs.length) {
+
+  // check タイプの今日の達成も含める
+  const checkItems = [];
+  if (DB.checks) {
+    Object.keys(DB.checks).forEach(catId => {
+      if (DB.checks[catId][today]) {
+        const cat = CATEGORIES.find(c => c.id === catId);
+        if (cat) checkItems.push(cat);
+      }
+    });
+  }
+
+  if (!recs.length && !checkItems.length) {
     el.innerHTML = `<div class="empty"><div class="e-icon">📋</div>まだ記録がありません</div>`;
     return;
   }
@@ -1043,17 +1062,25 @@ function renderCalendar() {
     const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const recs = DB.records.filter(r => r.date === ds);
     const hasStreak = DB.streak[ds];
+    // check タイプのその日の達成数をカウント
+    let checkCount = 0;
+    if (DB.checks) {
+      Object.keys(DB.checks).forEach(cid => {
+        if (DB.checks[cid][ds]) checkCount++;
+      });
+    }
     const isToday = ds === todayS;
 
     const cats = [...new Set(recs.map(r => r.catId))];
     let dots = '';
-    if (recs.length || hasStreak) {
-      const dotCount = Math.min(cats.length + (hasStreak ? 1 : 0), 3);
+    const totalCount = cats.length + (hasStreak ? 1 : 0) + checkCount;
+    if (totalCount > 0) {
+      const dotCount = Math.min(totalCount, 3);
       dots = `<div class="dot-row">${Array(dotCount).fill('<div class="cal-dot"></div>').join('')}</div>`;
     }
 
     html += `
-      <div class="cal-day ${isToday ? 'today' : ''} ${(recs.length||hasStreak) ? 'has-record' : ''}"
+      <div class="cal-day ${isToday ? 'today' : ''} ${(totalCount > 0) ? 'has-record' : ''}"
            onclick="showCalDetail('${ds}')">
         ${d}
         ${dots}
@@ -1080,7 +1107,18 @@ function showCalDetail(ds) {
   el.style.display = 'block';
   el.innerHTML = `<div class="cal-detail-title">${parseInt(m)}月${parseInt(d)}日</div>`;
 
-  if (!recs.length && !hasStreak) {
+  // check 項目を集める
+  const dayChecks = [];
+  if (DB.checks) {
+    Object.keys(DB.checks).forEach(cid => {
+      if (DB.checks[cid][ds]) {
+        const cat = CATEGORIES.find(c => c.id === cid);
+        if (cat) dayChecks.push(cat);
+      }
+    });
+  }
+
+  if (!recs.length && !hasStreak && !dayChecks.length) {
     el.innerHTML += `<div style="color:var(--text3);font-size:12px;">記録なし</div>`;
     return;
   }
@@ -1088,10 +1126,18 @@ function showCalDetail(ds) {
   if (hasStreak) {
     el.innerHTML += `
       <div class="log-item">
-        <span class="log-icon">💪</span>
-        <div class="log-body"><div class="log-name">脱ポルノ</div><div class="log-value">達成 ✓</div></div>
+        <span class="log-icon">🛡️</span>
+        <div class="log-body"><div class="log-name">セルフコントロール</div><div class="log-value">達成 ✓</div></div>
       </div>`;
   }
+
+  dayChecks.forEach(cat => {
+    el.innerHTML += `
+      <div class="log-item">
+        <span class="log-icon">${cat.icon}</span>
+        <div class="log-body"><div class="log-name">${cat.name}</div><div class="log-value">達成 ✓</div></div>
+      </div>`;
+  });
 
   recs.forEach(r => {
     const cat = CATEGORIES.find(c => c.id === r.catId);
@@ -1121,7 +1167,7 @@ let chartInstance = null;
 
 function initGraphSelect() {
   const sel = document.getElementById('graph-cat-select');
-  const graphCats = CATEGORIES.filter(c => c.id !== 'noporno');
+  const graphCats = CATEGORIES.filter(c => !c.special);
   sel.innerHTML = graphCats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
 }
 
@@ -1242,6 +1288,9 @@ function importJSON(e) {
       const parsed = JSON.parse(ev.target.result);
       if (!parsed.records) throw new Error();
       if (!confirm('現在のデータを上書きしてよろしいですか？')) return;
+      // 旧バージョンのデータ互換性確保
+      if (!parsed.checks) parsed.checks = {};
+      if (!parsed.streak) parsed.streak = {};
       DB = parsed;
       saveData(DB);
       renderCatGrid();
@@ -1271,8 +1320,18 @@ function exportCSV() {
   });
   // Add streak data
   Object.entries(DB.streak).forEach(([date, v]) => {
-    if (v) rows.push([date, '脱ポルノ達成', '', '', '', '', '']);
+    if (v) rows.push([date, 'セルフコントロール達成', '', '', '', '', '']);
   });
+  // Add check data
+  if (DB.checks) {
+    Object.keys(DB.checks).forEach(cid => {
+      const cat = CATEGORIES.find(c => c.id === cid);
+      if (!cat) return;
+      Object.entries(DB.checks[cid]).forEach(([date, v]) => {
+        if (v) rows.push([date, cat.name + '達成', '', '', '', '', '']);
+      });
+    });
+  }
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -1311,7 +1370,16 @@ function exportForClaude() {
     if (s.totalPages > 0) detail += ` / 合計${s.totalPages}ページ`;
     text += `・${cat.name}：${detail}\n`;
   });
-  text += `・脱ポルノ：現在${streak}日継続中 / 累計${Object.values(DB.streak).filter(Boolean).length}日達成\n\n`;
+  text += `・セルフコントロール：現在${streak}日継続中 / 累計${Object.values(DB.streak).filter(Boolean).length}日達成\n`;
+  if (DB.checks) {
+    Object.keys(DB.checks).forEach(cid => {
+      const cat = CATEGORIES.find(c => c.id === cid);
+      if (!cat) return;
+      const total = Object.values(DB.checks[cid]).filter(Boolean).length;
+      text += `・${cat.name}：累計${total}日達成\n`;
+    });
+  }
+  text += `\n`;
   text += `【直近30日の記録】\n`;
   const recent = DB.records.filter(r => r.date >= todayStr().slice(0,7) + '-01').slice(-50);
   recent.forEach(r => {
@@ -1365,7 +1433,7 @@ function renderDataStats() {
         <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--amber);">${totalDays}<span style="font-size:12px;margin-left:3px;">日</span></div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">
-        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:4px;">脱ポルノ達成日</div>
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.1em;margin-bottom:4px;">SC達成日</div>
         <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--amber);">${streakDays}<span style="font-size:12px;margin-left:3px;">日</span></div>
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;">

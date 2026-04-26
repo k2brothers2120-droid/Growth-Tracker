@@ -1,5 +1,5 @@
 // ★ アプリを更新したらここのバージョン番号を上げる（例: v2 → v3）
-const CACHE_NAME = 'sgt-v3';
+const CACHE_NAME = 'sgt-v5';
 
 const ASSETS = [
   './',
